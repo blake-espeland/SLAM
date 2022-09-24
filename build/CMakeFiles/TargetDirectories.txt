@@ -1,3 +1,0 @@
-/home/blake/Desktop/cVIT/build/CMakeFiles/edit_cache.dir
-/home/blake/Desktop/cVIT/build/CMakeFiles/rebuild_cache.dir
-/home/blake/Desktop/cVIT/build/CMakeFiles/cVIT.dir
