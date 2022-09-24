@@ -1,0 +1,1 @@
+/bin/x86_64-linux-gnu-gcc-9 -g -rdynamic CMakeFiles/cVIT.dir/src/main.c.o CMakeFiles/cVIT.dir/src/tensor.c.o CMakeFiles/cVIT.dir/src/transformer.c.o -o cVIT 
