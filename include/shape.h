@@ -11,6 +11,7 @@ typedef struct{
 } shape;
 
 shape* make_shape(size_t ndims, ...);
+shape* cat_shapes(shape* s1, shape* s2, int dim);
 void free_shape(shape* shp);
 void print_shape(shape* shp);
 

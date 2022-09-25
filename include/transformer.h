@@ -8,7 +8,8 @@ typedef struct{
 
 
 Transformer make_transformer_layer();
-void transformer_forward(Tensor* X);
+void multi_head_attn(Tensor* Q, Tensor* K, Tensor* V);
+void transformer_forward(Tensor* t);
 void transformer_backward();
 
 #endif

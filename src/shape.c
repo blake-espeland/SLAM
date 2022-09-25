@@ -24,6 +24,26 @@ shape* make_shape(size_t ndims, ...){
     return s;
 }
 
+/* Concats shapes along dimension dim. Warning: assumes equal ndims and 
+   dimensions along other axes */
+shape* cat_shapes( shape* s1, shape* s2, int dim ){
+    shape* s = malloc( sizeof(shape) );
+
+    s->ndims = s1->ndims;
+    s->dims = malloc( sizeof(size_t) * s1->ndims );
+
+    size_t size = 1;
+    int d = 0;
+    for( int i = 0; i < s1->ndims; i++ ){
+        d = s1->dims[i] + ((i == dim) * s2->dims[i]);
+        s->dims[i] = d;
+        size *= d;
+    }
+    s->size = size;
+
+    return s;
+}
+
 void print_shape(shape *shp){
     printf("shape size %ld: ", shp->size);
     printf("{");

@@ -75,16 +75,41 @@ Tensor* mult(Tensor* first, Tensor* second){
     int frowvect = first->shape->dims[0] == 1;
     int srowvect = second->shape->dims[0] == 1;
 
-    if (frowvect){ // row vector
-        if (scolvect){
-            return dot(first, second);
-        }else{
-            
-        }
-    }else if (fcolvect){ // col vector
-
+    if (frowvect && scolvect){
+        return dot(first, second);
     }
+    if (fcolvect && srowvect){
+        return outer(first, second);
+    }
+    return NULL;
 }
+
+Tensor* cat(Tensor* first, Tensor* second, int dim){
+    if( dim < 0 || dim > first->shape->ndims || dim > second->shape->ndims ){
+        perror("Illegal dimension selected.");
+        exit(1);
+    }
+    if ( second->shape->ndims != first->shape->ndims ){
+        perror("Tensors must have same dimensionality.");
+        exit(1);
+    }
+    for (int i = 0; i < first->shape->ndims; ++i){
+        if (i != dim && first->shape->dims[i] != second->shape->dims[i]){
+            perror("Tensors must have equivalent shapes in all other dimensions.");
+            exit(1);
+        }
+    }
+
+    size_t new_size = (first->shape->size + second->shape->size) * sizeof(float);
+    Tensor* res = malloc(sizeof(Tensor));
+    res->X = malloc(new_size);
+    res->shape = cat_shapes(first->shape, second->shape, dim);
+
+    
+}
+
+
+/* Tensor memory functions */
 
 Tensor* alloc_tensor(shape* shape){
     if (!shape->dims){
@@ -103,3 +128,4 @@ void free_tensor(Tensor *t){
     free(t->X);
     free_shape(t->shape);
 }
+

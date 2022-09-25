@@ -22,6 +22,7 @@ Tensor* mult(Tensor* first, Tensor* second);
 Tensor* T(Tensor* t);
 Tensor* dot(Tensor* first, Tensor* second);
 Tensor* outer(Tensor* first, Tensor* second);
+Tensor* cat(Tensor* first, Tensor* second, int dim);
 
 Tensor* zeros(shape shp);
 Tensor* ones(shape shp);
