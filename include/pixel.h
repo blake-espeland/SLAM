@@ -1,7 +1,9 @@
 #pragma once
+#include <bits/stdint-uintn.h>
+#include <stdint.h>
 
-typedef unsigned int channel_t;
-typedef signed int channel_t_signed;
+typedef uint16_t channel_t;
+typedef int16_t channel_t_signed;
 
 struct pixel_t {
     channel_t r;

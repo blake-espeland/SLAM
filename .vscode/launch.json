@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "cVIT",
+            "name": "SLAM",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/cVIT",
+            "program": "${workspaceFolder}/SLAM",
             "args": [],
             "environment": [],
             "cwd": "${workspaceFolder}",

@@ -27,7 +27,7 @@ pixel_t* Video::get(){
 
     for (int r = 0; r < orig.rows; r++){
         for (int c = 0; c < orig.cols; c++){
-            cv::Vec3b ch = orig.at<cv::Vec3b>(r, c);
+            cv::Vec3w ch = orig.at<cv::Vec3w>(r, c); // w -> unsigned short (u-i16)
             mod[r * orig.rows + c] = {ch[0], ch[1], ch[2]};
         }
     }

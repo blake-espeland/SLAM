@@ -31,36 +31,39 @@ void apply_gaussian_filter_gpu(pixel_t *in_pixels, pixel_t *out_pixels, int rows
 
     //determine id of thread which corresponds to an individual pixel
     int pixNum = blockIdx.x * blockDim.x + threadIdx.x;
-    if (pixNum >= 0 && pixNum < rows * cols) {
+
+    if (!(pixNum >= 0 && pixNum < rows * cols)) {
+        return;
+    }
    
-        double kernelSum;
-        double redPixelVal;
-        double greenPixelVal;
-        double bluePixelVal;
+    double kernelSum;
+    double redPixelVal;
+    double greenPixelVal;
+    double bluePixelVal;
 
-        //Apply Kernel to each pixel of image
-        for (int i = 0; i < G_KERNEL_SIZE; ++i) {
-            for (int j = 0; j < G_KERNEL_SIZE; ++j) {    
-            
-                //check edge cases, if within bounds, apply filter
-                if (((pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)) >= 0)
-                    && ((pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)) <= rows*cols-1)
-                    && (((pixNum % cols) + j - ((G_KERNEL_SIZE-1)/2)) >= 0)
-                    && (((pixNum % cols) + j - ((G_KERNEL_SIZE-1)/2)) <= (cols-1))) {
+    //Apply Kernel to each pixel of image
+    for (int i = 0; i < G_KERNEL_SIZE; ++i) {
+        for (int j = 0; j < G_KERNEL_SIZE; ++j) {    
+        
+            //check edge cases, if within bounds, apply filter
+            if (((pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)) >= 0)
+                && ((pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)) <= rows*cols-1)
+                && (((pixNum % cols) + j - ((G_KERNEL_SIZE-1)/2)) >= 0)
+                && (((pixNum % cols) + j - ((G_KERNEL_SIZE-1)/2)) <= (cols-1))) {
 
-                    redPixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].r;
-                    greenPixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].g;
-                    bluePixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].b;
-                    kernelSum += kernel[i][j];
-                }
+                redPixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].r;
+                greenPixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].g;
+                bluePixelVal += kernel[i][j] * in_pixels[pixNum + ((i - ((G_KERNEL_SIZE - 1) / 2))*cols) + j - ((G_KERNEL_SIZE - 1) / 2)].b;
+                kernelSum += kernel[i][j];
             }
         }
-        
-        //update output image
-        out_pixels[pixNum].r = redPixelVal / kernelSum;
-        out_pixels[pixNum].g = greenPixelVal / kernelSum;
-        out_pixels[pixNum].b = bluePixelVal / kernelSum;
     }
+    
+    //update output image
+    out_pixels[pixNum].r = redPixelVal / kernelSum;
+    out_pixels[pixNum].g = greenPixelVal / kernelSum;
+    out_pixels[pixNum].b = bluePixelVal / kernelSum;
+    
 }
 
 //*****************************************************************************************
@@ -108,6 +111,7 @@ void compute_intensity_gradient_gpu(pixel_t *in_pixels, channel_t_signed *deltaX
             deltaXred = (int16_t)(in_pixels[idx].r - in_pixels[idx-1].r);
             deltaXgreen = (int16_t)(in_pixels[idx].g - in_pixels[idx-1].g);
             deltaXblue = (int16_t)(in_pixels[idx].b - in_pixels[idx-1].b);
+
             deltaYred = (int16_t)(in_pixels[idx].r - in_pixels[idx-offset].r);
             deltaYgreen = (int16_t)(in_pixels[idx].g - in_pixels[idx-offset].g);
             deltaYblue = (int16_t)(in_pixels[idx].b - in_pixels[idx-offset].b);
@@ -143,7 +147,7 @@ void magnitude_gpu(channel_t_signed *deltaX, channel_t_signed *deltaY, channel_t
     if (idx >= 0 && idx < parser_length * offset) {
             out_pixel[idx] =  (channel_t)(sqrt((double)deltaX[idx]*deltaX[idx] + 
                             (double)deltaY[idx]*deltaY[idx]) + 0.5);
-        }
+    }
 }
 
 //*****************************************************************************************
@@ -163,113 +167,109 @@ void suppress_non_max_gpu(channel_t *mag, channel_t_signed *deltaX, channel_t_si
     const channel_t SUPPRESSED = 0;
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= 0 && idx < parser_length * offset)
-    {
-        float alpha;
-        float mag1, mag2;
-        // put zero all boundaries of image
-        // TOP edge line of the image
-        if((idx >= 0) && (idx <offset))
-            nms[idx] = 0;
-
-        // BOTTOM edge line of image
-        else if((idx >= (parser_length-1)*offset) && (idx < (offset * parser_length)))
-            nms[idx] = 0;
-
-        // LEFT & RIGHT edge line
-        else if(((idx % offset)==0) || ((idx % offset)==(offset - 1)))
-        {
-            nms[idx] = 0;
+    if (! (idx >= 0 && idx < parser_length * offset)) {return;}
+    float alpha;
+    float mag1, mag2;
+    // put zero all boundaries of image
+    // TOP edge line of the image
+    if((idx >= 0) && (idx <offset)){
+        nms[idx] = 0;
+    }
+    // BOTTOM edge line of image
+    else if((idx >= (parser_length-1)*offset) && (idx < (offset * parser_length))){
+        nms[idx] = 0;
+    }
+    // LEFT & RIGHT edge line
+    else if(((idx % offset)==0) || ((idx % offset)==(offset - 1))){
+        nms[idx] = 0;
+    }
+    // not the boundaries
+    else {
+        // if magnitude = 0, no edge
+        if(mag[idx] == 0){
+            nms[idx] = SUPPRESSED;
         }
-
-        else // not the boundaries
-        {
-            // if magnitude = 0, no edge
-            if(mag[idx] == 0)
-                nms[idx] = SUPPRESSED;
-                else{
-                    if(deltaX[idx] >= 0)
+        else{
+            if(deltaX[idx] >= 0)
+            {
+                if(deltaY[idx] >= 0)  // dx >= 0, dy >= 0
+                {
+                    if((deltaX[idx] - deltaY[idx]) >= 0)       // direction 1 (SEE, South-East-East)
                     {
-                        if(deltaY[idx] >= 0)  // dx >= 0, dy >= 0
-                        {
-                            if((deltaX[idx] - deltaY[idx]) >= 0)       // direction 1 (SEE, South-East-East)
-                            {
-                                alpha = (float)deltaY[idx] / deltaX[idx];
-                                mag1 = (1-alpha)*mag[idx+1] + alpha*mag[idx+offset+1];
-                                mag2 = (1-alpha)*mag[idx-1] + alpha*mag[idx-offset-1];
-                            }
-                            else                                // direction 2 (SSE)
-                            {
-                                alpha = (float)deltaX[idx] / deltaY[idx];
-                                mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset+1];
-                                mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset-1];
-                            }
-                        }
-                        else  // dx >= 0, dy < 0
-                        {
-                            if((deltaX[idx] + deltaY[idx]) >= 0)    // direction 8 (NEE)
-                            {
-                                alpha = (float)-deltaY[idx] / deltaX[idx];
-                                mag1 = (1-alpha)*mag[idx+1] + alpha*mag[idx-offset+1];
-                                mag2 = (1-alpha)*mag[idx-1] + alpha*mag[idx+offset-1];
-                            }
-                            else                                // direction 7 (NNE)
-                            {
-                                alpha = (float)deltaX[idx] / -deltaY[idx];
-                                mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset-1];
-                                mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset+1];
-                            }
-                        }
+                        alpha = (float)deltaY[idx] / deltaX[idx];
+                        mag1 = (1-alpha)*mag[idx+1] + alpha*mag[idx+offset+1];
+                        mag2 = (1-alpha)*mag[idx-1] + alpha*mag[idx-offset-1];
                     }
-
-                    else
+                    else                                // direction 2 (SSE)
                     {
-                        if(deltaY[idx] >= 0) // dx < 0, dy >= 0
-                        {
-                            if((deltaX[idx] + deltaY[idx]) >= 0)    // direction 3 (SSW)
-                            {
-                                alpha = (float)-deltaX[idx] / deltaY[idx];
-                                mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset-1];
-                                mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset+1];
-                            }
-                            else                                // direction 4 (SWW)
-                            {
-                                alpha = (float)deltaY[idx] / -deltaX[idx];
-                                mag1 = (1-alpha)*mag[idx-1] + alpha*mag[idx+offset-1];
-                                mag2 = (1-alpha)*mag[idx+1] + alpha*mag[idx-offset+1];
-                            }
-                        }
-
-                        else // dx < 0, dy < 0
-                        {
-                             if((-deltaX[idx] + deltaY[idx]) >= 0)   // direction 5 (NWW)
-                             {
-                                 alpha = (float)deltaY[idx] / deltaX[idx];
-                                 mag1 = (1-alpha)*mag[idx-1] + alpha*mag[idx-offset-1];
-                                 mag2 = (1-alpha)*mag[idx+1] + alpha*mag[idx+offset+1];
-                             }
-                             else                                // direction 6 (NNW)
-                             {
-                                 alpha = (float)deltaX[idx] / deltaY[idx];
-                                 mag1 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset-1];
-                                 mag2 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset+1];
-                             }
-                        }
+                        alpha = (float)deltaX[idx] / deltaY[idx];
+                        mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset+1];
+                        mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset-1];
                     }
-
-                    // non-maximal suppression
-                    // compare mag1, mag2 and mag[t]
-                    // if mag[t] is smaller than one of the neighbours then suppress it
-                    if((mag[idx] < mag1) || (mag[idx] < mag2))
-                         nms[idx] = SUPPRESSED;
-                    else
+                }
+                else  // dx >= 0, dy < 0
+                {
+                    if((deltaX[idx] + deltaY[idx]) >= 0)    // direction 8 (NEE)
                     {
-                         nms[idx] = mag[idx];
+                        alpha = (float)-deltaY[idx] / deltaX[idx];
+                        mag1 = (1-alpha)*mag[idx+1] + alpha*mag[idx-offset+1];
+                        mag2 = (1-alpha)*mag[idx-1] + alpha*mag[idx+offset-1];
                     }
+                    else                                // direction 7 (NNE)
+                    {
+                        alpha = (float)deltaX[idx] / -deltaY[idx];
+                        mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset-1];
+                        mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset+1];
+                    }
+                }
+            }
 
-            } // END OF ELSE (mag != 0)
-        } // END OF FOR(j)
-    } // END OF FOR(i)
+            else
+            {
+                if(deltaY[idx] >= 0) // dx < 0, dy >= 0
+                {
+                    if((deltaX[idx] + deltaY[idx]) >= 0)    // direction 3 (SSW)
+                    {
+                        alpha = (float)-deltaX[idx] / deltaY[idx];
+                        mag1 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset-1];
+                        mag2 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset+1];
+                    }
+                    else                                // direction 4 (SWW)
+                    {
+                        alpha = (float)deltaY[idx] / -deltaX[idx];
+                        mag1 = (1-alpha)*mag[idx-1] + alpha*mag[idx+offset-1];
+                        mag2 = (1-alpha)*mag[idx+1] + alpha*mag[idx-offset+1];
+                    }
+                }
+
+                else // dx < 0, dy < 0
+                {
+                        if((-deltaX[idx] + deltaY[idx]) >= 0)   // direction 5 (NWW)
+                        {
+                            alpha = (float)deltaY[idx] / deltaX[idx];
+                            mag1 = (1-alpha)*mag[idx-1] + alpha*mag[idx-offset-1];
+                            mag2 = (1-alpha)*mag[idx+1] + alpha*mag[idx+offset+1];
+                        }
+                        else                                // direction 6 (NNW)
+                        {
+                            alpha = (float)deltaX[idx] / deltaY[idx];
+                            mag1 = (1-alpha)*mag[idx-offset] + alpha*mag[idx-offset-1];
+                            mag2 = (1-alpha)*mag[idx+offset] + alpha*mag[idx+offset+1];
+                        }
+                }
+            }
+
+            // non-maximal suppression
+            // compare mag1, mag2 and mag[t]
+            // if mag[t] is smaller than one of the neighbours then suppress it
+            if((mag[idx] < mag1) || (mag[idx] < mag2))
+                    nms[idx] = SUPPRESSED;
+            else
+            {
+                    nms[idx] = mag[idx];
+            }
+        } // END OF ELSE (mag != 0)
+    } // END OF FOR(j)
 }
 
 //*****************************************************************************************
@@ -344,15 +344,15 @@ void hysteresis_high_gpu(channel_t *out_pixels, channel_t *in_pixels, unsigned *
                         channel_t t_high, unsigned img_height, unsigned img_width)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < (img_height * img_width)) {
-        /* apply high threshold */
-        if (in_pixels[idx] > t_high) {
-            strong_edge_mask[idx] = 1;
-            out_pixels[idx] = STRONG_EDGE;
-        } else {
-            strong_edge_mask[idx] = 0;
-            out_pixels[idx] = NON_EDGE;
-        }
+    if (idx >= (img_height * img_width)) {return;} // OOB
+    
+    /* apply high threshold */
+    if (in_pixels[idx] > t_high) {
+        strong_edge_mask[idx] = 1;
+        out_pixels[idx] = STRONG_EDGE;
+    } else {
+        strong_edge_mask[idx] = 0;
+        out_pixels[idx] = NON_EDGE;
     }
 }
 
@@ -385,120 +385,12 @@ void hysteresis_low_gpu(channel_t *out_pixels, channel_t *in_pixels, unsigned *s
     }
 }
 
-//*****************************************************************************************
-// Test/Debug hooks for separate kernels
-// These generally aren't to be used, but can serve as drop-in replacements for any
-// particular step of the algorithm's serial implementation.
-// Useful for debugging individual kernels.
-//*****************************************************************************************
-
-void test_gradient_gpu(pixel_t *buf0, channel_t_signed *deltaX_gray, channel_t_signed *deltaY_gray, unsigned rows, unsigned cols)
-{
-    pixel_t *in_pixels;
-    channel_t_signed *deltaX;
-    channel_t_signed *deltaY;
-    
-    cudaMalloc((void**) &in_pixels, sizeof(pixel_t)*rows*cols); 
-    cudaMalloc((void**) &deltaX, sizeof(channel_t_signed)*rows*cols);
-    cudaMalloc((void**) &deltaY, sizeof(channel_t_signed)*rows*cols);
-
-    cudaMemcpy(in_pixels, buf0, rows*cols*sizeof(pixel_t), cudaMemcpyHostToDevice);
-
-    compute_intensity_gradient_gpu<<<(rows*cols)/1024, 1024>>>(in_pixels, deltaX, deltaY, rows, cols);
-
-    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
-    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
-
-    cudaFree(in_pixels);
-    cudaFree(deltaX);
-    cudaFree(deltaY);
-}
-
-void test_mag_gpu(channel_t_signed *deltaX, channel_t_signed *deltaY, channel_t *out_pixel, unsigned rows, unsigned cols)
-{
-    channel_t *magnitude_v;
-    channel_t_signed *deltaX_gray;
-    channel_t_signed *deltaY_gray;
-
-    cudaMalloc((void**) &magnitude_v, sizeof(channel_t)*rows*cols); 
-    cudaMalloc((void**) &deltaX_gray, sizeof(channel_t_signed)*rows*cols);
-    cudaMalloc((void**) &deltaY_gray, sizeof(channel_t_signed)*rows*cols);
-
-    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
-    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
-
-    magnitude_gpu<<<(rows*cols)/1024, 1024>>>(deltaX_gray, deltaY_gray, magnitude_v, rows, cols);
-
-    cudaMemcpy(out_pixel, magnitude_v, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
-
-    cudaFree(magnitude_v);
-    cudaFree(deltaX_gray);
-    cudaFree(deltaY_gray);
-}
-
-void cu_test_nonmax(channel_t *mag, channel_t_signed *deltaX, channel_t_signed *deltaY, channel_t *nms, unsigned rows, unsigned cols)
-{
-    channel_t *magnitude_v;
-    channel_t *d_nms;
-    channel_t_signed *deltaX_gray;
-    channel_t_signed *deltaY_gray;
-
-    cudaMalloc((void**) &magnitude_v, sizeof(channel_t)*rows*cols); 
-    cudaMalloc((void**) &d_nms, sizeof(channel_t)*rows*cols); 
-    cudaMalloc((void**) &deltaX_gray, sizeof(channel_t_signed)*rows*cols);
-    cudaMalloc((void**) &deltaY_gray, sizeof(channel_t_signed)*rows*cols);
-
-    cudaMemcpy(magnitude_v, mag, rows*cols*sizeof(channel_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
-    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
-
-    suppress_non_max_gpu<<<(rows*cols)/1024, 1024>>>(magnitude_v, deltaX_gray, deltaY_gray, d_nms, rows, cols);
-
-    cudaMemcpy(nms, d_nms, rows*cols*sizeof(channel_t), cudaMemcpyDeviceToHost);
-    
-    cudaFree(magnitude_v);
-    cudaFree(d_nms);
-    cudaFree(deltaX_gray);
-    cudaFree(deltaY_gray);
-}
-
-void test_hysteresis_gpu(channel_t *in, channel_t *out, unsigned rows, unsigned cols)
-{
-    channel_t *in_pixels, *out_pixels;
-    unsigned *idx_map;
-
-    /* allocate device memory */
-    cudaMalloc((void**) &in_pixels, rows*cols*sizeof(channel_t));
-    cudaMalloc((void**) &out_pixels, rows*cols*sizeof(channel_t));
-    cudaMalloc((void**) &idx_map, rows*cols*sizeof(idx_map[0]));
-
-    /* copy original pixels to GPU device as in_pixels*/
-    cudaMemcpy(in_pixels, in, rows*cols*sizeof(channel_t), cudaMemcpyHostToDevice);
-      
-    channel_t t_high = 0xFCC;
-    channel_t t_low = 0x1FF;
-
-    /* create task stream to sequence kernels */
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
-    /* launch kernels */
-    hysteresis_high_gpu<<<(rows*cols)/1024, 1024, 0, stream>>>(out_pixels, in_pixels, idx_map, t_high, rows, cols);
-    hysteresis_low_gpu<<<(rows*cols)/1024, 1024, 0, stream>>>(out_pixels, in_pixels, idx_map, t_low, rows, cols);
-
-    /* copy blurred pixels from GPU device back to host as out_pixels*/
-    cudaMemcpy(out, out_pixels, rows*cols*sizeof(channel_t), cudaMemcpyDeviceToHost);
-
-    cudaFree(in_pixels);
-    cudaFree(out_pixels);
-    cudaFree(idx_map);
-}
 
 //*****************************************************************************************
 // Entry point for serial program calling CUDA implementation
 //*****************************************************************************************
 
-void cu_detect_edges(channel_t *final_pixels, pixel_t *orig_pixels, int rows, int cols, double kernel[G_KERNEL_SIZE][G_KERNEL_SIZE]) 
+void canny_gpu(channel_t *final_pixels, pixel_t *orig_pixels, int rows, int cols, double kernel[G_KERNEL_SIZE][G_KERNEL_SIZE]) 
 {
     /* kernel execution configuration parameters */
     int num_blks = (rows * cols) / 1024;
@@ -556,4 +448,113 @@ void cu_detect_edges(channel_t *final_pixels, pixel_t *orig_pixels, int rows, in
     cudaFree(deltaY);
     cudaFree(idx_map);
     cudaFree(d_blur_kernel);
+}
+
+//*****************************************************************************************
+// Test/Debug hooks for separate kernels
+// These generally aren't to be used, but can serve as drop-in replacements for any
+// particular step of the algorithm's serial implementation.
+// Useful for debugging individual kernels.
+//*****************************************************************************************
+
+void test_gradient_gpu(pixel_t *buf0, channel_t_signed *deltaX_gray, channel_t_signed *deltaY_gray, unsigned rows, unsigned cols)
+{
+    pixel_t *in_pixels;
+    channel_t_signed *deltaX;
+    channel_t_signed *deltaY;
+    
+    cudaMalloc((void**) &in_pixels, sizeof(pixel_t)*rows*cols); 
+    cudaMalloc((void**) &deltaX, sizeof(channel_t_signed)*rows*cols);
+    cudaMalloc((void**) &deltaY, sizeof(channel_t_signed)*rows*cols);
+
+    cudaMemcpy(in_pixels, buf0, rows*cols*sizeof(pixel_t), cudaMemcpyHostToDevice);
+
+    compute_intensity_gradient_gpu<<<(rows*cols)/1024, 1024>>>(in_pixels, deltaX, deltaY, rows, cols);
+
+    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
+    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
+
+    cudaFree(in_pixels);
+    cudaFree(deltaX);
+    cudaFree(deltaY);
+}
+
+void test_mag_gpu(channel_t_signed *deltaX, channel_t_signed *deltaY, channel_t *out_pixel, unsigned rows, unsigned cols)
+{
+    channel_t *magnitude_v;
+    channel_t_signed *deltaX_gray;
+    channel_t_signed *deltaY_gray;
+
+    cudaMalloc((void**) &magnitude_v, sizeof(channel_t)*rows*cols); 
+    cudaMalloc((void**) &deltaX_gray, sizeof(channel_t_signed)*rows*cols);
+    cudaMalloc((void**) &deltaY_gray, sizeof(channel_t_signed)*rows*cols);
+
+    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
+    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
+
+    magnitude_gpu<<<(rows*cols)/1024, 1024>>>(deltaX_gray, deltaY_gray, magnitude_v, rows, cols);
+
+    cudaMemcpy(out_pixel, magnitude_v, rows*cols*sizeof(channel_t_signed), cudaMemcpyDeviceToHost);
+
+    cudaFree(magnitude_v);
+    cudaFree(deltaX_gray);
+    cudaFree(deltaY_gray);
+}
+
+void test_nonmax_gpu(channel_t *mag, channel_t_signed *deltaX, channel_t_signed *deltaY, channel_t *nms, unsigned rows, unsigned cols)
+{
+    channel_t *magnitude_v;
+    channel_t *d_nms;
+    channel_t_signed *deltaX_gray;
+    channel_t_signed *deltaY_gray;
+
+    cudaMalloc((void**) &magnitude_v, sizeof(channel_t)*rows*cols); 
+    cudaMalloc((void**) &d_nms, sizeof(channel_t)*rows*cols); 
+    cudaMalloc((void**) &deltaX_gray, sizeof(channel_t_signed)*rows*cols);
+    cudaMalloc((void**) &deltaY_gray, sizeof(channel_t_signed)*rows*cols);
+
+    cudaMemcpy(magnitude_v, mag, rows*cols*sizeof(channel_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(deltaX_gray, deltaX, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
+    cudaMemcpy(deltaY_gray, deltaY, rows*cols*sizeof(channel_t_signed), cudaMemcpyHostToDevice);
+
+    suppress_non_max_gpu<<<(rows*cols)/1024, 1024>>>(magnitude_v, deltaX_gray, deltaY_gray, d_nms, rows, cols);
+
+    cudaMemcpy(nms, d_nms, rows*cols*sizeof(channel_t), cudaMemcpyDeviceToHost);
+    
+    cudaFree(magnitude_v);
+    cudaFree(d_nms);
+    cudaFree(deltaX_gray);
+    cudaFree(deltaY_gray);
+}
+
+void test_hysteresis_gpu(channel_t *in, channel_t *out, unsigned rows, unsigned cols)
+{
+    channel_t *in_pixels, *out_pixels;
+    unsigned *idx_map;
+
+    /* allocate device memory */
+    cudaMalloc((void**) &in_pixels, rows*cols*sizeof(channel_t));
+    cudaMalloc((void**) &out_pixels, rows*cols*sizeof(channel_t));
+    cudaMalloc((void**) &idx_map, rows*cols*sizeof(idx_map[0]));
+
+    /* copy original pixels to GPU device as in_pixels*/
+    cudaMemcpy(in_pixels, in, rows*cols*sizeof(channel_t), cudaMemcpyHostToDevice);
+      
+    channel_t t_high = 0xFCC;
+    channel_t t_low = 0x1FF;
+
+    /* create task stream to sequence kernels */
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    /* launch kernels */
+    hysteresis_high_gpu<<<(rows*cols)/1024, 1024, 0, stream>>>(out_pixels, in_pixels, idx_map, t_high, rows, cols);
+    hysteresis_low_gpu<<<(rows*cols)/1024, 1024, 0, stream>>>(out_pixels, in_pixels, idx_map, t_low, rows, cols);
+
+    /* copy blurred pixels from GPU device back to host as out_pixels*/
+    cudaMemcpy(out, out_pixels, rows*cols*sizeof(channel_t), cudaMemcpyDeviceToHost);
+
+    cudaFree(in_pixels);
+    cudaFree(out_pixels);
+    cudaFree(idx_map);
 }
